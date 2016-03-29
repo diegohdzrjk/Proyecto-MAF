@@ -1,1 +1,3 @@
 # Proyecto-MAF
+
+El proyecto de esta carpeta es recrear un tutorial sobre como ir programando en Python soluciones numéricas a las ecuaciones de Navier-Stokes. Con el fin de llegar a simular un fluido bajo distintas condiciones iniciales y de frontera en un dominio rectangular. El proyecto de MAF consiste en simular la inestabilidad de Kelvin-Helmhotz como objetivo principal, adicionalmente se busca modificar los programas de forma a extender a otras geometrías como lo son dominios cilindricos, así como dominios arbitrarios en coordenadas cartesianas, un ejemplo siendo una caja con una obstrucción en el centro de forma cuadrada.
