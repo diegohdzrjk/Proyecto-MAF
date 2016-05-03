@@ -1,0 +1,156 @@
+from sys import stdout
+import numpy as np
+import warnings
+import os
+import csv
+#stdout.write("\r{0}/{1}".format(n,n_samp))
+#stdout.flush()
+
+def downsample(array,rate,atol=2e-3,rtol=1e-5):
+    min_sep = 1.0/rate
+    n=0
+    samples=[n]
+    while array[samples[-1]]!=array[-1]:
+        pio_index = samples[n-1]
+        pioneer = array[pio_index]
+        for i in xrange(pio_index+1,len(array)):
+            sep = abs(array[i]-pioneer)
+            if np.isclose(sep-min_sep, 0, atol=atol, rtol=rtol):
+                samples.append(i)
+                break
+            elif abs(array[-1]-pioneer)<min_sep:
+                samples.append(len(array)-1)
+                break
+            elif array[samples[-1]]==array[-1]:
+                break
+            else:
+                continue
+        else:
+            warnings.warn("\nCould not perform appropiate sampling over given array.\nAbsolute tolerance = {1}\nRelative tolerance= {2}\n . . . Reverting to a full sample.".format(1,atol,rtol)
+                          ,RuntimeWarning)
+            # use everything as sample space and set samp_rate as None
+            samples = range(len(array))
+            break
+        n=len(samples)
+    return samples
+
+def outwrite(space, data, samp_rates=[60,None,None], f_prefix="eggs", wdir="."):
+    """
+    This function takes as input space, a list of 1-d arrays, and data, an n-d array.
+    The list of space arrays has to coincide with the order in which this dimensions are represented in the data array.
+    This function writes our data and space coordinates into two files;
+    one with suffix "_data.csv",
+    and the other with "_space.csv".
+    This function does not return anything.
+    """
+    ################################################################################################
+    # pre-process
+    
+    num_dim = len(space)
+    num_datasets = data.shape[0]
+    files = ["_data.csv","_space.csv"]
+
+    # catch errors
+    if type(data)!=np.ndarray:
+        raise ValueError, "Data is not a numpy.ndarray."
+    if data.ndim!=1+num_dim:
+        raise ValueError, "Shape of data and space arrays do not match.\nSpace has have {1} dimensions, data lives in {0}, mind you.".format(data.ndim-1,num_dim)
+    else:
+        space_params = {i:{} for i in xrange(num_dim)}
+        for i in xrange(len(space)):
+            if type(space[i])!=np.ndarray:
+                raise ValueError, "Dimension {0} in not a numpy.ndarray.".format(i)
+            elif len(space[i].shape)!=1:
+                raise ValueError, "Invalid shape of dimension {0} array.".format(i)
+            else:
+                # set the stage
+                # with some parameters of total available data
+                space_params[i]["len"] = len(space[i])
+                # minimum separation between samples
+                if samp_rates[i]:
+                    # construct sample space
+                    space_params[i]["samples"] = downsample(space[i],samp_rates[i],atol=3.6e-3)
+                else:
+                    space_params[i]["samples"] = range(space_params[i]["len"])
+
+
+    ################################################################################################
+    # Create and write the goddamn files
+
+    # SPACE FILE
+    # the space file is special if there is downsampling
+    # if I detect a previous file, I'll assume we are carrying on with that
+    if f_prefix+"_space.csv" not in os.listdir(wdir):
+        # create
+        spacefile = (open(wdir+"/"+f_prefix+"_space.csv","wb"))
+        print "\t. . . creating new space file"
+        # write
+        spacewriter = csv.writer(spacefile, delimiter=",")
+        for n in xrange(num_dim):
+            spacewriter.writerow(space[n][space_params[n]["samples"]])
+        spacefile.close()
+    else:
+        print "\t. . . space file already exists"
+        # read
+        old_spacefile = open(wdir+"/"+f_prefix+"_space.csv","rb")
+        spacereader = csv.reader(old_spacefile, delimiter=",")
+        new_space = []
+        # compare
+        for n in xrange(num_dim):
+            old_dim = np.array(spacereader.next(),dtype=np.float32)
+            new_dim = space[n][space_params[n]["samples"]]
+            if len(old_dim)==len(new_dim) and np.all(np.equal(new_dim.astype(np.float32),old_dim)):
+                new_space.append(old_dim)
+            elif len(np.where(new_dim==old_dim[-1])[0])==1:
+                start_point = np.where(new_dim==old_dim[-1])[0][0]+1
+                new_space.append(np.concatenate( (old_dim,new_dim[start_point:]) ))
+            else:
+                raise RuntimeError, "wat"
+        # create
+        spacefile = (open(wdir+"/"+f_prefix+"_space.csv","wb"))
+        # write
+        spacewriter = csv.writer(spacefile, delimiter=",")
+        for n in xrange(num_dim):
+            spacewriter.writerow(new_space[n])
+        spacefile.close()
+        old_spacefile.close()
+
+
+    # DATA FILE
+    # create
+    if f_prefix+"_data.csv" not in os.listdir(wdir):
+        datafile = open(wdir+"/"+f_prefix+"_data.csv","wb")
+        print "\t. . . creating new data file"
+    else:
+        datafile = open(wdir+"/"+f_prefix+"_data.csv","ab")
+        print "\t. . . data file already exists"
+    datawriter = csv.writer(datafile, delimiter=",")
+    # write
+    # esto es super chaca, podria ser un iterator
+    for t in space_params[0]["samples"]:
+        for y in space_params[1]["samples"]:
+            for x in space_params[2]["samples"]:
+                datawriter.writerow(data[:,t,y,x])
+    datafile.close()
+
+def read_space(prefix = "eggs", rdir = "."):
+    space = []
+    spacefile = open(rdir+"/"+prefix+"_space.csv","r")
+    spacereader = csv.reader(spacefile,delimiter=",",)
+    for n in spacereader:
+        space.append(np.array(n,dtype=np.float32))
+    return space
+
+def read(prefix = "eggs", rdir = "."):
+    space = read_space(prefix=prefix, rdir=rdir)
+    datafile = open(rdir+"/"+prefix+"_data.csv")
+    n_data = len(datafile.readline().split(","))
+    n_space = len(space)
+    datafile.seek(0)
+    datareader = csv.reader(datafile,delimiter=",")
+    datamatrix = np.empty([n_data]+[len(d) for d in space])
+    for t in xrange(len(space[0])):
+        for y in xrange(len(space[1])):
+            for x in xrange(len(space[2])):
+                datamatrix[:,t,y,x] = np.array(datareader.next(),dtype=np.float32)
+    return datamatrix, space
