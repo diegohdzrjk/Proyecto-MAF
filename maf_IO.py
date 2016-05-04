@@ -6,19 +6,23 @@ import csv
 #stdout.write("\r{0}/{1}".format(n,n_samp))
 #stdout.flush()
 
-def downsample(array,rate,atol=2e-3,rtol=1e-5):
-    min_sep = 1.0/rate
+def downsample(array, min_sep, tol=0.10):
     n=0
     samples=[n]
     while array[samples[-1]]!=array[-1]:
         pio_index = samples[n-1]
         pioneer = array[pio_index]
         for i in xrange(pio_index+1,len(array)):
-            sep = abs(array[i]-pioneer)
-            if np.isclose(sep-min_sep, 0, atol=atol, rtol=rtol):
+            sep = array[i]-pioneer
+            if sep<=0:
+                raise RuntimeError, "Null or negative separation,\nencountered between position {0} and {1}".format(pio_index,i)
+            elif sep>min_sep*(1+tol):
                 samples.append(i)
                 break
-            elif abs(array[-1]-pioneer)<min_sep:
+            elif min_sep*(1-tol) < sep < min_sep*(1+tol):
+                samples.append(i)
+                break
+            elif array[-1]-pioneer<=min_sep:
                 samples.append(len(array)-1)
                 break
             elif array[samples[-1]]==array[-1]:
@@ -31,10 +35,9 @@ def downsample(array,rate,atol=2e-3,rtol=1e-5):
             # use everything as sample space and set samp_rate as None
             samples = range(len(array))
             break
-        n=len(samples)
     return samples
 
-def outwrite(space, data, samp_rates=[60,None,None], f_prefix="eggs", wdir="."):
+def outwrite(space, data, samp_rates=[60,None,None], f_prefix="eggs", wdir=".", tol=0.10):
     """
     This function takes as input space, a list of 1-d arrays, and data, an n-d array.
     The list of space arrays has to coincide with the order in which this dimensions are represented in the data array.
@@ -69,7 +72,7 @@ def outwrite(space, data, samp_rates=[60,None,None], f_prefix="eggs", wdir="."):
                 # minimum separation between samples
                 if samp_rates[i]:
                     # construct sample space
-                    space_params[i]["samples"] = downsample(space[i],samp_rates[i],atol=3.6e-3)
+                    space_params[i]["samples"] = downsample(space[i],samp_rates[i],tol=tol)
                 else:
                     space_params[i]["samples"] = range(space_params[i]["len"])
 
@@ -101,11 +104,12 @@ def outwrite(space, data, samp_rates=[60,None,None], f_prefix="eggs", wdir="."):
             new_dim = space[n][space_params[n]["samples"]]
             if len(old_dim)==len(new_dim) and np.all(np.equal(new_dim.astype(np.float32),old_dim)):
                 new_space.append(old_dim)
-            elif len(np.where(new_dim==old_dim[-1])[0])==1:
-                start_point = np.where(new_dim==old_dim[-1])[0][0]+1
+            elif len(np.where(new_dim.astype(np.float32)==old_dim[-1])[0])==1:
+                start_point = np.where(new_dim.astype(np.float32)==old_dim[-1])[0][0]+1
+                # aqui, cambiar
                 new_space.append(np.concatenate( (old_dim,new_dim[start_point:]) ))
             else:
-                raise RuntimeError, "wat"
+                raise RuntimeError, "Dimension {0} did not match, or could not be glued.".format(n)
         # create
         spacefile = (open(wdir+"/"+f_prefix+"_space.csv","wb"))
         # write
