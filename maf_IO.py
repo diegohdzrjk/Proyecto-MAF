@@ -37,7 +37,11 @@ def downsample(array, min_sep, tol=0.10):
             break
     return samples
 
+<<<<<<< HEAD
 def outwrite(space, data, samp_steps=[1e-4,None,None], fprefix="eggs", wdir=".", tol=0.10):
+=======
+def outwrite(space, data, samp_rates=[60,None,None], f_prefix="eggs", wdir=".", tol=0.10):
+>>>>>>> 75e74c6316b5fba8acaa484fa9bf3cf07abd7eed
     """
     This function takes as input space, a list of 1-d arrays, and data, an n-d array.
     The list of space arrays has to coincide with the order in which this dimensions are represented in the data array.
@@ -72,7 +76,11 @@ def outwrite(space, data, samp_steps=[1e-4,None,None], fprefix="eggs", wdir=".",
                 # minimum separation between samples
                 if samp_steps[i]:
                     # construct sample space
+<<<<<<< HEAD
                     space_params[i]["samples"] = downsample(space[i],samp_steps[i],tol=tol)
+=======
+                    space_params[i]["samples"] = downsample(space[i],samp_rates[i],tol=tol)
+>>>>>>> 75e74c6316b5fba8acaa484fa9bf3cf07abd7eed
                 else:
                     space_params[i]["samples"] = range(space_params[i]["len"])
 
@@ -105,7 +113,10 @@ def outwrite(space, data, samp_steps=[1e-4,None,None], fprefix="eggs", wdir=".",
             new_dim = space[n][space_params[n]["samples"]]
             if len(old_dim)==len(new_dim) and np.all(np.isclose(new_dim.astype(np.float32),old_dim,atol=1e-16)):
                 new_space.append(old_dim)
+<<<<<<< HEAD
                 space_flag += 1
+=======
+>>>>>>> 75e74c6316b5fba8acaa484fa9bf3cf07abd7eed
             elif len(np.where(new_dim.astype(np.float32)==old_dim[-1])[0])==1:
                 start_point = np.where(new_dim.astype(np.float32)==old_dim[-1])[0][0]+1
                 # aqui, cambiar
