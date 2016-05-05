@@ -111,7 +111,10 @@ def outwrite(space, data, samp_steps=[1e-4,None,None], fprefix="eggs", wdir=".",
                 space_flag += 1
             elif len(np.where(np.isclose(new_dim.astype(np.float64),old_dim[-2]))[0])==1:
                 start_point = np.where(np.isclose(new_dim.astype(np.float64),old_dim[-2]))[0][0] + 1
-                new_space.append(np.concatenate( (old_dim,new_dim[start_point:]) ))
+                new_space.append(np.concatenate( (old_dim[:-1],new_dim[start_point:]) ))
+                # here we make the "samples" list change to only the new indices, if dim is 0, which should be time
+                if n == 0:
+                    space_params[n]["samples"] = np.where(space[n]==new_dim[start_point+1:])[0]
             else:
                 raise RuntimeError, "Dimension {0} did not match, or could not be glued.".format(n)
         # create
@@ -127,21 +130,22 @@ def outwrite(space, data, samp_steps=[1e-4,None,None], fprefix="eggs", wdir=".",
     # DATA FILE
     # create
     if fprefix+"_data.csv" not in os.listdir(wdir):
-        datafile = open(wdir+"/"+fprefix+"_data.csv","wb")
         print "\t. . . creating new data file"
+        datafile = open(wdir+"/"+fprefix+"_data.csv","wb")
     elif space_flag == num_dim and fprefix+"_data.csv" in os.listdir(wdir):
         print "\t. . . data file already exists, but space is unchanged; nothing written"
         return None
     else:
-        datafile = open(wdir+"/"+fprefix+"_data.csv","ab")
         print "\t. . . data file already exists, appending new data"
+        datafile = open(wdir+"/"+fprefix+"_data.csv","ab")
     datawriter = csv.writer(datafile, delimiter=",")
-    # write
-    # esto es super chaca, podria ser un iterator
     for t in space_params[0]["samples"]:
         for y in space_params[1]["samples"]:
             for x in space_params[2]["samples"]:
                 datawriter.writerow(data[:,t,y,x])
+    # write
+    # esto es super chaca, podria ser un iterator
+
     datafile.close()
 
 def read_space(prefix = "eggs", rdir = "."):
