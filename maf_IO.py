@@ -16,13 +16,13 @@ def downsample(array, min_sep, tol=0.10):
             sep = array[i]-pioneer
             if sep<=0:
                 raise RuntimeError, "Null or negative separation,\nencountered between position {0} and {1}".format(pio_index,i)
-            elif sep>min_sep*(1+tol):
+            elif sep>=min_sep*(1+tol):
                 samples.append(i)
                 break
             elif min_sep*(1-tol) < sep < min_sep*(1+tol):
                 samples.append(i)
                 break
-            elif array[-1]-pioneer<=min_sep:
+            elif array[-1]-pioneer<=min_sep*(1-tol):
                 samples.append(len(array)-1)
                 break
             elif array[samples[-1]]==array[-1]:
@@ -35,7 +35,10 @@ def downsample(array, min_sep, tol=0.10):
             # use everything as sample space and set samp_rate as None
             samples = range(len(array))
             break
-    return samples
+    if len(samples)<2:
+        raise RuntimeError, "Too few samples taken."
+    else:
+        return samples
 
 def outwrite(space, data, samp_steps=[1e-4,None,None], fprefix="eggs", wdir=".", tol=0.10):
     """
@@ -101,14 +104,13 @@ def outwrite(space, data, samp_steps=[1e-4,None,None], fprefix="eggs", wdir=".",
         # compare
         space_flag = 0
         for n in xrange(num_dim):
-            old_dim = np.array(spacereader.next(),dtype=np.float32)
+            old_dim = np.array(spacereader.next(),dtype=np.float64)
             new_dim = space[n][space_params[n]["samples"]]
-            if len(old_dim)==len(new_dim) and np.all(np.isclose(new_dim.astype(np.float32),old_dim,atol=1e-16)):
+            if len(old_dim)==len(new_dim) and np.all(np.isclose(new_dim.astype(np.float64),old_dim,atol=1e-16)):
                 new_space.append(old_dim)
                 space_flag += 1
-            elif len(np.where(new_dim.astype(np.float32)==old_dim[-1])[0])==1:
-                start_point = np.where(new_dim.astype(np.float32)==old_dim[-1])[0][0]+1
-                # aqui, cambiar
+            elif len(np.where(np.isclose(new_dim.astype(np.float64),old_dim[-2]))[0])==1:
+                start_point = np.where(np.isclose(new_dim.astype(np.float64),old_dim[-2]))[0][0] + 1
                 new_space.append(np.concatenate( (old_dim,new_dim[start_point:]) ))
             else:
                 raise RuntimeError, "Dimension {0} did not match, or could not be glued.".format(n)
@@ -147,7 +149,7 @@ def read_space(prefix = "eggs", rdir = "."):
     spacefile = open(rdir+"/"+prefix+"_space.csv","r")
     spacereader = csv.reader(spacefile,delimiter=",",)
     for n in spacereader:
-        space.append(np.array(n,dtype=np.float32))
+        space.append(np.array(n,dtype=np.float64))
     return space
 
 def read(prefix = "eggs", rdir = "."):
@@ -161,5 +163,5 @@ def read(prefix = "eggs", rdir = "."):
     for t in xrange(len(space[0])):
         for y in xrange(len(space[1])):
             for x in xrange(len(space[2])):
-                datamatrix[:,t,y,x] = np.array(datareader.next(),dtype=np.float32)
+                datamatrix[:,t,y,x] = np.array(datareader.next(),dtype=np.float64)
     return datamatrix, space

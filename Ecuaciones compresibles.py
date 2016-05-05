@@ -166,10 +166,10 @@ def Avance_en_tiempo(u0, v0, p0, rho0, E0, nu, f, g, dx, dy, x, y, sigma, NT, ny
         if max(amax(u), amax(v)) > 1000:
             raise RuntimeError, u"Tuve que terminar la sesión, ciclo {}".format(n)
         # aqui guardar los datos y limpiar
-       # if n%100==0:
-       #     space = [array(thist), y, x]
-       #     data = array([Rhist, Uhist, Vhist, Ehist, Phist, Xhist])
-       #     IO.outwrite(space, data, samp_steps=[min_step, None, None], fprefix=f_prefix, tol=tol)
+        if n!=0 and n%100==0:
+            space = [array(thist), y, x]
+            data = array([Rhist, Uhist, Vhist, Ehist, Phist, Xhist])
+            IO.outwrite(space, data, samp_steps=[min_step, None, None], fprefix=f_prefix, tol=tol)
     if flag:
         return Rhist, Uhist, Vhist, Ehist, Phist, Xhist, thist
     else:
@@ -180,9 +180,9 @@ def Avance_en_tiempo(u0, v0, p0, rho0, E0, nu, f, g, dx, dy, x, y, sigma, NT, ny
 
 lx = 4.
 ly = 1.
-nx = 100
-ny = 100
-NT = 10000
+nx = 20
+ny = 20
+NT = 1000
 
 dx = lx/(nx-1)
 dy = ly/(ny-1)
@@ -267,5 +267,5 @@ def animate(i,ax,bx,fig):
     return contornof, contornof2, campo_vectorial,
 
 #anim=animation.FuncAnimation(figanim, animate, init_func=init, frames=len(Uh)/salto, 
-                               fargs=(Ax, Bx, figanim), interval=5);
+#                               fargs=(Ax, Bx, figanim), interval=5);
 #anim.save("mi_anim.mp4",fps=20);
