@@ -30,14 +30,14 @@ def downsample(array, min_sep, tol=0.10):
             else:
                 continue
         else:
-            warnings.warn("\nCould not perform appropiate sampling over given array.\nAbsolute tolerance = {1}\nRelative tolerance= {2}\n . . . Reverting to a full sample.".format(1,atol,rtol)
+            warnings.warn("\nCould not perform appropiate sampling over given array.\nTolerance = {0}%\n . . . Reverting to a full sample.".format(100*tol)
                           ,RuntimeWarning)
             # use everything as sample space and set samp_rate as None
             samples = range(len(array))
             break
     return samples
 
-def outwrite(space, data, samp_rates=[60,None,None], f_prefix="eggs", wdir=".", tol=0.10):
+def outwrite(space, data, samp_steps=[1e-4,None,None], fprefix="eggs", wdir=".", tol=0.10):
     """
     This function takes as input space, a list of 1-d arrays, and data, an n-d array.
     The list of space arrays has to coincide with the order in which this dimensions are represented in the data array.
@@ -70,9 +70,9 @@ def outwrite(space, data, samp_rates=[60,None,None], f_prefix="eggs", wdir=".", 
                 # with some parameters of total available data
                 space_params[i]["len"] = len(space[i])
                 # minimum separation between samples
-                if samp_rates[i]:
+                if samp_steps[i]:
                     # construct sample space
-                    space_params[i]["samples"] = downsample(space[i],samp_rates[i],tol=tol)
+                    space_params[i]["samples"] = downsample(space[i],samp_steps[i],tol=tol)
                 else:
                     space_params[i]["samples"] = range(space_params[i]["len"])
 
@@ -83,9 +83,9 @@ def outwrite(space, data, samp_rates=[60,None,None], f_prefix="eggs", wdir=".", 
     # SPACE FILE
     # the space file is special if there is downsampling
     # if I detect a previous file, I'll assume we are carrying on with that
-    if f_prefix+"_space.csv" not in os.listdir(wdir):
+    if fprefix+"_space.csv" not in os.listdir(wdir):
         # create
-        spacefile = (open(wdir+"/"+f_prefix+"_space.csv","wb"))
+        spacefile = (open(wdir+"/"+fprefix+"_space.csv","wb"))
         print "\t. . . creating new space file"
         # write
         spacewriter = csv.writer(spacefile, delimiter=",")
@@ -95,15 +95,17 @@ def outwrite(space, data, samp_rates=[60,None,None], f_prefix="eggs", wdir=".", 
     else:
         print "\t. . . space file already exists"
         # read
-        old_spacefile = open(wdir+"/"+f_prefix+"_space.csv","rb")
+        old_spacefile = open(wdir+"/"+fprefix+"_space.csv","rb")
         spacereader = csv.reader(old_spacefile, delimiter=",")
         new_space = []
         # compare
+        space_flag = 0
         for n in xrange(num_dim):
             old_dim = np.array(spacereader.next(),dtype=np.float32)
             new_dim = space[n][space_params[n]["samples"]]
-            if len(old_dim)==len(new_dim) and np.all(np.equal(new_dim.astype(np.float32),old_dim)):
+            if len(old_dim)==len(new_dim) and np.all(np.isclose(new_dim.astype(np.float32),old_dim,atol=1e-16)):
                 new_space.append(old_dim)
+                space_flag += 1
             elif len(np.where(new_dim.astype(np.float32)==old_dim[-1])[0])==1:
                 start_point = np.where(new_dim.astype(np.float32)==old_dim[-1])[0][0]+1
                 # aqui, cambiar
@@ -111,7 +113,7 @@ def outwrite(space, data, samp_rates=[60,None,None], f_prefix="eggs", wdir=".", 
             else:
                 raise RuntimeError, "Dimension {0} did not match, or could not be glued.".format(n)
         # create
-        spacefile = (open(wdir+"/"+f_prefix+"_space.csv","wb"))
+        spacefile = (open(wdir+"/"+fprefix+"_space.csv","wb"))
         # write
         spacewriter = csv.writer(spacefile, delimiter=",")
         for n in xrange(num_dim):
@@ -122,12 +124,15 @@ def outwrite(space, data, samp_rates=[60,None,None], f_prefix="eggs", wdir=".", 
 
     # DATA FILE
     # create
-    if f_prefix+"_data.csv" not in os.listdir(wdir):
-        datafile = open(wdir+"/"+f_prefix+"_data.csv","wb")
+    if fprefix+"_data.csv" not in os.listdir(wdir):
+        datafile = open(wdir+"/"+fprefix+"_data.csv","wb")
         print "\t. . . creating new data file"
+    elif space_flag == num_dim and fprefix+"_data.csv" in os.listdir(wdir):
+        print "\t. . . data file already exists, but space is unchanged; nothing written"
+        return None
     else:
-        datafile = open(wdir+"/"+f_prefix+"_data.csv","ab")
-        print "\t. . . data file already exists"
+        datafile = open(wdir+"/"+fprefix+"_data.csv","ab")
+        print "\t. . . data file already exists, appending new data"
     datawriter = csv.writer(datafile, delimiter=",")
     # write
     # esto es super chaca, podria ser un iterator
