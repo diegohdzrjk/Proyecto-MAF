@@ -111,7 +111,7 @@ def vorticidad(un, vn, dx, dy):
     Xi[2:-2,2:-2] = (un[0:-4,2:-2]-8*un[1:-3,2:-2]+8*un[3:-1,2:-2]-un[4:,2:-2])/(12*dy)                    -(vn[2:-2,0:-4]-8*vn[2:-2,1:-3]+8*vn[2:-2,3:-1]-vn[2:-2,4:])/(12*dx)
     return Xi
 
-def Avance_en_tiempo(u0, v0, p0, rho0, E0, nu, f, g, dx, dy, x, y, sigma, NT, ny, nx, flag, min_step, tol, f_prefix):
+def Avance_en_tiempo(u0, v0, p0, rho0, E0, nu, f, g, dx, dy, x, y, sigma, NT, ny, nx, flag, min_step, tol, f_prefix, nblock=100):
     t = 0.0
     un = zeros((ny, nx))
     vn = zeros((ny, nx))
@@ -119,24 +119,33 @@ def Avance_en_tiempo(u0, v0, p0, rho0, E0, nu, f, g, dx, dy, x, y, sigma, NT, ny
     rhon = zeros((ny, nx))
     En = zeros((ny, nx))
     Xin = zeros((ny, nx))
-    
-    if flag: 
-        Uhist=[]
-        Vhist=[]
-        Phist=[]
-        Rhist=[]
-        Ehist=[]
-        Xhist=[]
-        thist=[]
-    
+
     u = u0
     v = v0
     P = p0
     rho = rho0
     E = E0
+ 
+    if flag: 
+        Uhist=np.empty( (nblock+1,ny,nx) )
+        Vhist=np.empty( (nblock+1,ny,nx) )
+        Phist =np.empty( (nblock+1,ny,nx) )
+        Rhist=np.empty( (nblock+1,ny,nx) )
+        Ehist=np.empty( (nblock+1,ny,nx) )
+        Xhist=np.empty( (nblock+1,ny,nx) )
+
+        thist=[]
+
+        Uhist[0,:,:] = u
+        Vhist[0,:,:] = v         
+        Phist[0,:,:] = P
+        Rhist[0,:,:] = rho         
+        Ehist[0,:,:] = E
+        Xhist[0,:,:] = np.zeros_like(u)         
+            
     
     for n in range(NT):        
-        if n%100==0: print "Ciclo:"+str(n)
+        if n%nblock==0: print "Ciclo:"+str(n)
             
         #Se copia el valor de la funcion u en el arreglo un
         un = u.copy()
@@ -147,12 +156,12 @@ def Avance_en_tiempo(u0, v0, p0, rho0, E0, nu, f, g, dx, dy, x, y, sigma, NT, ny
         Xin = vorticidad(un, vn, dx, dy)
         
         if flag:                         
-            Uhist.append(un)
-            Vhist.append(vn)
-            Phist.append(Pn)
-            Rhist.append(rhon)
-            Ehist.append(En)
-            Xhist.append(Xin)
+            Uhist[n%nblock+1,:,:] = un
+            Vhist[n%nblock+1,:,:] = vn
+            Phist[n%nblock+1,:,:] = Pn
+            Rhist[n%nblock+1,:,:] = rhon
+            Ehist[n%nblock+1,:,:] = En
+            Xhist[n%nblock+1,:,:] = Xin
             thist.append(t)
 
         ReD = min(amin(rho*un)*dx, amin(rho*vn)*dy)/nu
@@ -166,10 +175,18 @@ def Avance_en_tiempo(u0, v0, p0, rho0, E0, nu, f, g, dx, dy, x, y, sigma, NT, ny
         if max(amax(u), amax(v)) > 1000:
             raise RuntimeError, u"Tuve que terminar la sesión, ciclo {}".format(n)
         # aqui guardar los datos y limpiar
-        if n!=0 and n%100==0:
+        if n!=0 and n%nblock==0:
             space = [array(thist), y, x]
             data = array([Rhist, Uhist, Vhist, Ehist, Phist, Xhist])
             IO.outwrite(space, data, samp_steps=[min_step, None, None], fprefix=f_prefix, tol=tol)
+            # clean up
+            Uhist[0,:,:] = Uhist[-1,:,:]   
+            Vhist[0,:,:] = Vhist[-1,:,:]
+            Phist[0,:,:] = Phist[-1,:,:]
+            Rhist[0,:,:] = Rhist[-1,:,:]
+            Ehist[0,:,:] = Ehist[-1,:,:]
+            Xhist[0,:,:] = Xhist[-1,:,:]      
+            
     if flag:
         return Rhist, Uhist, Vhist, Ehist, Phist, Xhist, thist
     else:
@@ -180,8 +197,8 @@ def Avance_en_tiempo(u0, v0, p0, rho0, E0, nu, f, g, dx, dy, x, y, sigma, NT, ny
 
 lx = 4.
 ly = 1.
-nx = 20
-ny = 20
+nx = 200
+ny = 100
 NT = 1000
 
 dx = lx/(nx-1)
