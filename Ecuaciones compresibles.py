@@ -197,8 +197,8 @@ def Avance_en_tiempo(u0, v0, p0, rho0, E0, nu, f, g, dx, dy, x, y, sigma, NT, ny
 
 lx = 4.
 ly = 1.
-nx = 200
-ny = 100
+nx = 20
+ny = 20
 NT = 1000
 
 dx = lx/(nx-1)

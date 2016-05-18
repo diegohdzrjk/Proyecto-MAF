@@ -72,7 +72,6 @@ def outwrite(space, data, samp_steps=[1e-4,None,None], fprefix="eggs", wdir=".",
                 # set the stage
                 # with some parameters of total available data
                 space_params[i]["len"] = len(space[i])
-                # minimum separation between samples
                 if samp_steps[i]:
                     # construct sample space
                     space_params[i]["samples"] = downsample(space[i],samp_steps[i],tol=tol)
@@ -109,12 +108,13 @@ def outwrite(space, data, samp_steps=[1e-4,None,None], fprefix="eggs", wdir=".",
             if len(old_dim)==len(new_dim) and np.all(np.isclose(new_dim.astype(np.float64),old_dim,atol=1e-16)):
                 new_space.append(old_dim)
                 space_flag += 1
-            elif len(np.where(np.isclose(new_dim.astype(np.float64),old_dim[-2]))[0])==1:
-                start_point = np.where(np.isclose(new_dim.astype(np.float64),old_dim[-2]))[0][0] + 1
-                new_space.append(np.concatenate( (old_dim[:-1],new_dim[start_point:]) ))
-                # here we make the "samples" list change to only the new indices, if dim is 0, which should be time
-                if n == 0:
-                    space_params[n]["samples"] = np.where(space[n]==new_dim[start_point+1:])[0]
+            elif n == 0 and len(np.where(np.isclose(space[n].astype(np.float64),old_dim[-1]))[0])==1:
+                # resample
+                # this assumes that we are working in cycles where we delete previous input but kkep the time array growing
+                # first, refocus space to ignore old dimension
+                start_point = np.where(np.isclose(space[n].astype(np.float64),old_dim[-1]))[0][0]
+                space_params[n]["samples"] = downsample(space[n][start_point:],samp_steps[n],tol=tol)
+                new_space.append( np.concatenate( (old_dim[:-1],space[n][start_point:][space_params[n]["samples"]]) ) )           
             else:
                 raise RuntimeError, "Dimension {0} did not match, or could not be glued.".format(n)
         # create
@@ -164,7 +164,7 @@ def read(prefix = "eggs", rdir = "."):
     datafile.seek(0)
     datareader = csv.reader(datafile,delimiter=",")
     datamatrix = np.empty([n_data]+[len(d) for d in space])
-    for t in xrange(len(space[0])):
+    for t in xrange(len(space[0])-1):
         for y in xrange(len(space[1])):
             for x in xrange(len(space[2])):
                 datamatrix[:,t,y,x] = np.array(datareader.next(),dtype=np.float64)
